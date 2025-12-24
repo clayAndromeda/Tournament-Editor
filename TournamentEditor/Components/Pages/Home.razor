@@ -1,7 +1,26 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>トーナメントエディター</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>スイス式トーナメントエディター</h1>
 
-Welcome to your new app.
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">スイス式トーナメントとは</h5>
+        <p class="card-text">
+            スイス式トーナメントは、すべての参加者が同じ回数の試合を行い、
+            同じポイント帯の相手と対戦するシステムです。
+        </p>
+        <ul>
+            <li>参加者数: 2の冪乗（2, 4, 8, 16, 32, 64, 128, 256人）</li>
+            <li>ラウンド数: log2(参加者数)</li>
+            <li>マッチング: 完全スイス式（過去対戦回避）</li>
+            <li>タイブレーク: ソネボーン・ベルガー方式</li>
+        </ul>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="/tournament/create" class="btn btn-primary btn-lg">新しいトーナメントを作成</a>
+    <a href="/tournament" class="btn btn-outline-secondary btn-lg ms-2">トーナメント管理</a>
+</div>

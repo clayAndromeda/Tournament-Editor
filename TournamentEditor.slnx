@@ -1,3 +1,5 @@
 <Solution>
+  <Project Path="TournamentEditor.Core/TournamentEditor.Core.csproj" />
+  <Project Path="TournamentEditor.Tests/TournamentEditor.Tests.csproj" />
   <Project Path="TournamentEditor/TournamentEditor.csproj" />
 </Solution>

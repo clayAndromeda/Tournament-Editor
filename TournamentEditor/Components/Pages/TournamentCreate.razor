@@ -1,0 +1,89 @@
+@page "/tournament/create"
+@using TournamentEditor.Services
+@inject TournamentService TournamentService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>トーナメント作成</PageTitle>
+
+<h1>トーナメント作成</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">トーナメント名</label>
+            <input type="text" class="form-control" @bind="tournamentName" placeholder="例: 2025年春季大会" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">参加者数</label>
+            <select class="form-select" @bind="selectedParticipantCount">
+                <option value="2">2人</option>
+                <option value="4">4人</option>
+                <option value="8" selected>8人</option>
+                <option value="16">16人</option>
+                <option value="32">32人</option>
+                <option value="64">64人</option>
+                <option value="128">128人</option>
+                <option value="256">256人</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">参加者名を入力（1行に1人）</label>
+            <textarea class="form-control" rows="10" @bind="participantInput"
+                      placeholder="参加者1&#10;参加者2&#10;参加者3&#10;..."></textarea>
+            <small class="text-muted">現在: @currentParticipantCount 人</small>
+        </div>
+
+        <button class="btn btn-primary" @onclick="CreateTournament">トーナメント作成</button>
+    </div>
+</div>
+
+@code {
+    private string tournamentName = "";
+    private int selectedParticipantCount = 8;
+    private string participantInput = "";
+    private string errorMessage = "";
+
+    private int currentParticipantCount =>
+        participantInput.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+
+    private void CreateTournament()
+    {
+        errorMessage = "";
+
+        try
+        {
+            var names = participantInput
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(n => n.Trim())
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
+
+            if (string.IsNullOrWhiteSpace(tournamentName))
+            {
+                errorMessage = "トーナメント名を入力してください。";
+                return;
+            }
+
+            if (names.Count != selectedParticipantCount)
+            {
+                errorMessage = $"参加者数が一致しません。{selectedParticipantCount}人の名前を入力してください。（現在: {names.Count}人）";
+                return;
+            }
+
+            var tournament = TournamentService.CreateTournament(tournamentName, names);
+            Navigation.NavigateTo("/tournament");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

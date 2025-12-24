@@ -1,0 +1,221 @@
+@page "/tournament"
+@using TournamentEditor.Models
+@using TournamentEditor.Services
+@inject TournamentService TournamentService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>トーナメント管理</PageTitle>
+
+@if (TournamentService.CurrentTournament == null)
+{
+    <div class="alert alert-info">
+        トーナメントが作成されていません。
+        <a href="/tournament/create">トーナメントを作成</a>
+    </div>
+}
+else
+{
+    var tournament = TournamentService.CurrentTournament;
+
+    <h1>@tournament.Name</h1>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">トーナメント情報</h5>
+                    <p><strong>総ラウンド数:</strong> @tournament.TotalRounds</p>
+                    <p><strong>現在のラウンド:</strong> @tournament.CurrentRound / @tournament.TotalRounds</p>
+                    <p><strong>参加者数:</strong> @tournament.Participants.Count 人</p>
+                    <p><strong>ステータス:</strong> @(tournament.IsComplete ? "完了" : "進行中")</p>
+
+                    @if (!tournament.IsComplete)
+                    {
+                        @if (tournament.CurrentRound == 0)
+                        {
+                            <button class="btn btn-success" @onclick="StartNextRound">第1ラウンド開始</button>
+                        }
+                        else if (TournamentService.IsCurrentRoundComplete() && tournament.CurrentRound < tournament.TotalRounds)
+                        {
+                            <button class="btn btn-success" @onclick="StartNextRound">次のラウンド開始</button>
+                        }
+                        else if (TournamentService.IsCurrentRoundComplete() && tournament.CurrentRound >= tournament.TotalRounds)
+                        {
+                            <button class="btn btn-primary" @onclick="CompleteTournament">トーナメント完了</button>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (tournament.CurrentRound > 0)
+    {
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">第 @tournament.CurrentRound ラウンド - 対戦表</h5>
+                        @{
+                            var currentMatches = tournament.Matches.Where(m => m.RoundNumber == tournament.CurrentRound).ToList();
+                        }
+
+                        @if (currentMatches.Any())
+                        {
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>試合番号</th>
+                                        <th>プレイヤー1</th>
+                                        <th>VS</th>
+                                        <th>プレイヤー2</th>
+                                        <th>結果</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var match in currentMatches.OrderBy(m => m.MatchNumber))
+                                    {
+                                        var player1 = tournament.Participants.FirstOrDefault(p => p.Id == match.Player1Id);
+                                        var player2 = tournament.Participants.FirstOrDefault(p => p.Id == match.Player2Id);
+
+                                        <tr>
+                                            <td>@match.MatchNumber</td>
+                                            <td>@(player1?.Name ?? "不明")</td>
+                                            <td>VS</td>
+                                            <td>@(player2?.Name ?? "不明")</td>
+                                            <td>
+                                                @switch (match.Result)
+                                                {
+                                                    case MatchResult.NotPlayed:
+                                                        <span class="badge bg-secondary">未実施</span>
+                                                        break;
+                                                    case MatchResult.Player1Win:
+                                                        <span class="badge bg-success">@(player1?.Name) 勝利</span>
+                                                        break;
+                                                    case MatchResult.Player2Win:
+                                                        <span class="badge bg-success">@(player2?.Name) 勝利</span>
+                                                        break;
+                                                    case MatchResult.BothLoss:
+                                                        <span class="badge bg-danger">両負け</span>
+                                                        break;
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (match.Result == MatchResult.NotPlayed)
+                                                {
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <button class="btn btn-outline-success" @onclick="() => RecordResult(match.Id, MatchResult.Player1Win)">
+                                                            P1勝利
+                                                        </button>
+                                                        <button class="btn btn-outline-success" @onclick="() => RecordResult(match.Id, MatchResult.Player2Win)">
+                                                            P2勝利
+                                                        </button>
+                                                        <button class="btn btn-outline-danger" @onclick="() => RecordResult(match.Id, MatchResult.BothLoss)">
+                                                            両負け
+                                                        </button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => RecordResult(match.Id, MatchResult.NotPlayed)">
+                                                        リセット
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">順位表</h5>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>順位</th>
+                                <th>参加者名</th>
+                                <th>勝</th>
+                                <th>負</th>
+                                <th>ポイント</th>
+                                <th>SB</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var standings = TournamentService.GetStandings();
+                                int rank = 1;
+                            }
+                            @foreach (var participant in standings)
+                            {
+                                <tr>
+                                    <td>@rank</td>
+                                    <td>@participant.Name</td>
+                                    <td>@participant.Wins</td>
+                                    <td>@participant.Losses</td>
+                                    <td>@participant.Points</td>
+                                    <td>@participant.SonnebornBerger.ToString("F1")</td>
+                                </tr>
+                                rank++;
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        // 定期的な更新は不要だが、必要に応じてStateHasChangedを呼ぶ
+    }
+
+    private void StartNextRound()
+    {
+        try
+        {
+            TournamentService.StartNextRound();
+        }
+        catch (Exception ex)
+        {
+            // エラーハンドリング（実際にはログやユーザー通知を実装）
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private void RecordResult(Guid matchId, MatchResult result)
+    {
+        try
+        {
+            TournamentService.RecordMatchResult(matchId, result);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private void CompleteTournament()
+    {
+        try
+        {
+            TournamentService.CompleteTournament();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
