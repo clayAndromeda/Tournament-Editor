@@ -1,0 +1,293 @@
+@page "/simulation"
+@using TournamentEditor.Models
+@using TournamentEditor.Services
+@inject TournamentSimulationService SimulationService
+@rendermode InteractiveServer
+
+<PageTitle>トーナメントシミュレーション</PageTitle>
+
+<h1>トーナメントシミュレーション</h1>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">シミュレーション設定</h5>
+
+        <div class="mb-3">
+            <label class="form-label">参加者数</label>
+            <select class="form-select" @bind="participantCount">
+                <option value="4">4人</option>
+                <option value="8">8人</option>
+                <option value="16">16人</option>
+                <option value="32">32人</option>
+                <option value="64">64人</option>
+                <option value="128">128人</option>
+                <option value="256">256人</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">シミュレーション回数</label>
+            <input type="number" class="form-control" @bind="iterations" min="100" max="100000" step="100" />
+        </div>
+
+        <h6 class="mt-4">試合結果の確率設定</h6>
+        <div class="mb-3">
+            <label class="form-label">両負け発生率 (%)</label>
+            <input type="range" class="form-range" @bind="bothLossPercent" @bind:event="oninput" min="0" max="100" step="1" />
+            <div class="d-flex justify-content-between">
+                <span class="text-muted">0%</span>
+                <span class="badge bg-primary fs-6">@bothLossPercent.ToString("F0")%</span>
+                <span class="text-muted">100%</span>
+            </div>
+            <small class="text-muted">
+                ※ 残りの @((100 - bothLossPercent).ToString("F0"))% は勝敗に均等配分されます（各 @(((100 - bothLossPercent) / 2).ToString("F1"))%）
+            </small>
+        </div>
+
+        <div class="mt-4">
+            <button class="btn btn-primary" @onclick="RunSimulation" disabled="@isRunning">
+                @if (isRunning)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>実行中...</span>
+                }
+                else
+                {
+                    <span>シミュレーション実行</span>
+                }
+            </button>
+
+            @if (isRunning)
+            {
+                <button class="btn btn-danger ms-2" @onclick="CancelSimulation">
+                    中断
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-secondary ms-2" @onclick="SetDefaultProbability">
+                    デフォルト設定
+                </button>
+
+                <button class="btn btn-secondary ms-2" @onclick="SetRealisticProbability">
+                    現実的な設定
+                </button>
+            }
+        </div>
+
+        @if (isRunning)
+        {
+            <div class="mt-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>進捗: @currentIteration / @iterations</span>
+                    <span>@progressPercentage.ToString("F1")%</span>
+                </div>
+                <div class="progress" style="height: 30px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar"
+                         style="width: @(progressPercentage)%"
+                         aria-valuenow="@progressPercentage"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                        @currentIteration / @iterations
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (result != null)
+{
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">シミュレーション結果</h5>
+
+            <div class="row mt-3">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">総実行回数</h6>
+                            <h3 class="card-text">@result.TotalIterations 回</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">再マッチ発生率</h6>
+                            <h3 class="card-text">@((result.RematchProbability * 100).ToString("F2"))%</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">平均再マッチ回数</h6>
+                            <h3 class="card-text">@result.AverageRematchCount.ToString("F2")</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">最大再マッチ回数</h6>
+                            <h3 class="card-text">@result.MaxRematchCount</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h6 class="mt-4">再マッチ回数の分布</h6>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>再マッチ回数</th>
+                            <th>発生したシミュレーション数</th>
+                            <th>割合</th>
+                            <th>グラフ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var kvp in result.RematchCountDistribution.OrderBy(x => x.Key))
+                        {
+                            var percentage = (double)kvp.Value / result.TotalIterations * 100;
+                            <tr>
+                                <td>@kvp.Key 回</td>
+                                <td>@kvp.Value</td>
+                                <td>@percentage.ToString("F2")%</td>
+                                <td>
+                                    <div class="progress" style="min-width: 200px;">
+                                        <div class="progress-bar" role="progressbar"
+                                             style="width: @percentage%"
+                                             aria-valuenow="@percentage"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (result.RematchesByRound.Any())
+            {
+                <h6 class="mt-4">ラウンドごとの再マッチ発生数</h6>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ラウンド</th>
+                                <th>再マッチ発生数（全シミュレーション合計）</th>
+                                <th>平均発生数（シミュレーション1回あたり）</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var kvp in result.RematchesByRound.OrderBy(x => x.Key))
+                            {
+                                var avgRematches = (double)kvp.Value / result.TotalIterations;
+                                <tr>
+                                    <td>第 @kvp.Key ラウンド</td>
+                                    <td>@kvp.Value</td>
+                                    <td>@avgRematches.ToString("F2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private int participantCount = 8;
+    private int iterations = 1000;
+    private double bothLossPercent = 10.0;
+    private bool isRunning = false;
+    private int currentIteration = 0;
+    private double progressPercentage = 0;
+    private CancellationTokenSource? cancellationTokenSource;
+
+    private SimulationResult? result;
+
+    private bool IsProbabilityValid()
+    {
+        return bothLossPercent >= 0 && bothLossPercent <= 100;
+    }
+
+    private void SetDefaultProbability()
+    {
+        bothLossPercent = 33.0;
+    }
+
+    private void SetRealisticProbability()
+    {
+        bothLossPercent = 10.0;
+    }
+
+    private async Task RunSimulation()
+    {
+        isRunning = true;
+        result = null;
+        currentIteration = 0;
+        progressPercentage = 0;
+        cancellationTokenSource = new CancellationTokenSource();
+        StateHasChanged();
+
+        await Task.Delay(10); // UI更新のための短い遅延
+
+        var participantNames = Enumerable.Range(1, participantCount)
+            .Select(i => $"Player{i}")
+            .ToList();
+
+        var winLossPercent = (100.0 - bothLossPercent) / 2.0;
+        var config = new SimulationConfig
+        {
+            Iterations = iterations,
+            Player1WinProbability = winLossPercent / 100.0,
+            Player2WinProbability = winLossPercent / 100.0,
+            BothLossProbability = bothLossPercent / 100.0
+        };
+
+        try
+        {
+            var progress = new Progress<int>(iteration =>
+            {
+                currentIteration = iteration;
+                progressPercentage = (double)iteration / iterations * 100.0;
+                InvokeAsync(StateHasChanged);
+            });
+
+            // 非同期でシミュレーションを実行
+            result = await Task.Run(() =>
+                SimulationService.RunSimulation(participantNames, config, progress, cancellationTokenSource.Token),
+                cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // キャンセルされた場合は何もしない
+            result = null;
+        }
+        finally
+        {
+            isRunning = false;
+            currentIteration = 0;
+            progressPercentage = 0;
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelSimulation()
+    {
+        cancellationTokenSource?.Cancel();
+    }
+}

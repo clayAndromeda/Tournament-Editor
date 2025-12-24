@@ -51,73 +51,53 @@ public class SwissPairingService
         var paired = new HashSet<Guid>();
         int matchNumber = 1;
 
-        // ポイントグループごとに処理
-        var pointGroups = activePlayers.GroupBy(p => p.Points).OrderByDescending(g => g.Key);
-
-        var unpaired = new List<Participant>();
-
-        foreach (var group in pointGroups)
+        // すべてのプレイヤーをペアリングするまで繰り返す
+        while (paired.Count < activePlayers.Count)
         {
-            var groupPlayers = group.Where(p => !paired.Contains(p.Id)).ToList();
-            unpaired.AddRange(groupPlayers);
+            // まだペアになっていないプレイヤーを取得
+            var unpaired = activePlayers.Where(p => !paired.Contains(p.Id)).ToList();
 
-            // グループ内でペアリングを試みる
-            while (unpaired.Count >= 2)
+            if (unpaired.Count < 2)
             {
-                var player1 = unpaired[0];
-                Participant? player2 = null;
+                break;
+            }
 
-                // 過去に対戦していない相手を探す
-                for (int i = 1; i < unpaired.Count; i++)
-                {
-                    var candidate = unpaired[i];
-                    if (!player1.OpponentIds.Contains(candidate.Id))
-                    {
-                        player2 = candidate;
-                        break;
-                    }
-                }
+            var player1 = unpaired[0];
+            Participant? player2 = null;
 
-                // 見つからない場合は最も近い相手を選択
-                if (player2 == null && unpaired.Count >= 2)
+            // 過去に対戦していない相手を探す（最も近いランク）
+            for (int i = 1; i < unpaired.Count; i++)
+            {
+                var candidate = unpaired[i];
+                if (!player1.OpponentIds.Contains(candidate.Id))
                 {
-                    player2 = unpaired[1];
-                }
-
-                if (player2 != null)
-                {
-                    matches.Add(new Match
-                    {
-                        RoundNumber = roundNumber,
-                        MatchNumber = matchNumber++,
-                        Player1Id = player1.Id,
-                        Player2Id = player2.Id
-                    });
-
-                    paired.Add(player1.Id);
-                    paired.Add(player2.Id);
-                    unpaired.Remove(player1);
-                    unpaired.Remove(player2);
-                }
-                else
-                {
+                    player2 = candidate;
                     break;
                 }
             }
-        }
 
-        // まだペアになっていないプレイヤーがいる場合の処理
-        if (unpaired.Count >= 2)
-        {
-            for (int i = 0; i < unpaired.Count - 1; i += 2)
+            // どうしても見つからない場合のみ、過去の対戦相手とマッチ（再マッチ）
+            if (player2 == null && unpaired.Count >= 2)
+            {
+                player2 = unpaired[1];
+            }
+
+            if (player2 != null)
             {
                 matches.Add(new Match
                 {
                     RoundNumber = roundNumber,
                     MatchNumber = matchNumber++,
-                    Player1Id = unpaired[i].Id,
-                    Player2Id = unpaired[i + 1].Id
+                    Player1Id = player1.Id,
+                    Player2Id = player2.Id
                 });
+
+                paired.Add(player1.Id);
+                paired.Add(player2.Id);
+            }
+            else
+            {
+                break;
             }
         }
 

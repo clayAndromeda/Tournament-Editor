@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<TournamentService>();
+builder.Services.AddSingleton<TournamentSimulationService>();
 
 var app = builder.Build();
 
