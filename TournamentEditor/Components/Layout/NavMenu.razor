@@ -1,4 +1,6 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@rendermode InteractiveServer
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">トーナメントエディター</a>
     </div>
@@ -7,30 +9,81 @@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <div class="search-box px-3" @onclick:stopPropagation="true">
+        <div class="search-input-wrapper">
+            <span class="bi bi-search-nav-menu"></span>
+            <input type="text"
+                   class="search-input"
+                   placeholder="メニューを検索..."
+                   @bind="searchQuery"
+                   @bind:event="oninput"
+                   @onclick:stopPropagation="true" />
+            @if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <button class="search-clear" @onclick="ClearSearch" @onclick:stopPropagation="true">
+                    <span class="bi bi-x-nav-menu"></span>
+                </button>
+            }
+        </div>
+    </div>
+
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> ホーム
-            </NavLink>
-        </div>
+        @foreach (var item in FilteredMenuItems)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="@item.Href" Match="@item.Match">
+                    <span class="@item.IconClass" aria-hidden="true"></span> @item.Title
+                </NavLink>
+            </div>
+        }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="tournament/create">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> トーナメント作成
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="tournament">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> トーナメント管理
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="simulation">
-                <span class="bi bi-graph-up-arrow-nav-menu" aria-hidden="true"></span> シミュレーション
-            </NavLink>
-        </div>
+        @if (!FilteredMenuItems.Any())
+        {
+            <div class="px-3 py-4 text-center text-muted">
+                <small>検索結果がありません</small>
+            </div>
+        }
     </nav>
 </div>
+
+@code {
+    private string searchQuery = "";
+
+    private List<MenuItem> menuItems = new()
+    {
+        new MenuItem { Title = "ホーム", Href = "", IconClass = "bi bi-house-door-fill-nav-menu", Match = NavLinkMatch.All },
+        new MenuItem { Title = "トーナメント作成", Href = "tournament/create", IconClass = "bi bi-plus-square-fill-nav-menu", Match = NavLinkMatch.Prefix },
+        new MenuItem { Title = "トーナメント管理", Href = "tournament", IconClass = "bi bi-list-nested-nav-menu", Match = NavLinkMatch.Prefix },
+        new MenuItem { Title = "シミュレーション", Href = "simulation", IconClass = "bi bi-graph-up-arrow-nav-menu", Match = NavLinkMatch.Prefix }
+    };
+
+    private IEnumerable<MenuItem> FilteredMenuItems
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                return menuItems;
+            }
+
+            var query = searchQuery.ToLower();
+            return menuItems.Where(item =>
+                item.Title.ToLower().Contains(query) ||
+                item.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void ClearSearch()
+    {
+        searchQuery = "";
+    }
+
+    private class MenuItem
+    {
+        public string Title { get; set; } = "";
+        public string Href { get; set; } = "";
+        public string IconClass { get; set; } = "";
+        public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+    }
+}
 

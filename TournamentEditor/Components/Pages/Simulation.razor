@@ -1,14 +1,16 @@
 @page "/simulation"
 @using TournamentEditor.Models
 @using TournamentEditor.Services
-@inject TournamentSimulationService SimulationService
 @rendermode InteractiveServer
 
 <PageTitle>トーナメントシミュレーション</PageTitle>
 
-<h1>トーナメントシミュレーション</h1>
+<div class="mb-4">
+    <h1>トーナメントシミュレーション</h1>
+    <p class="text-muted">スイス式トーナメントの再マッチ発生率をシミュレーション</p>
+</div>
 
-<div class="card mt-4">
+<div class="card">
     <div class="card-body">
         <h5 class="card-title">シミュレーション設定</h5>
 
@@ -63,16 +65,6 @@
                     中断
                 </button>
             }
-            else
-            {
-                <button class="btn btn-secondary ms-2" @onclick="SetDefaultProbability">
-                    デフォルト設定
-                </button>
-
-                <button class="btn btn-secondary ms-2" @onclick="SetRealisticProbability">
-                    現実的な設定
-                </button>
-            }
         </div>
 
         @if (isRunning)
@@ -103,39 +95,39 @@
         <div class="card-body">
             <h5 class="card-title">シミュレーション結果</h5>
 
-            <div class="row mt-3">
+            <div class="row mt-3 g-3">
                 <div class="col-md-3">
-                    <div class="card bg-light">
+                    <div class="card bg-light h-100">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">総実行回数</h6>
-                            <h3 class="card-text">@result.TotalIterations 回</h3>
+                            <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.85rem;">総実行回数</h6>
+                            <h3 class="card-text mb-0" style="color: var(--primary-color); font-weight: 700;">@result.TotalIterations<small style="font-size: 0.6em; font-weight: 400; margin-left: 0.25rem;">回</small></h3>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card bg-light">
+                    <div class="card bg-light h-100">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">再マッチ発生率</h6>
-                            <h3 class="card-text">@((result.RematchProbability * 100).ToString("F2"))%</h3>
+                            <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.85rem;">再マッチ発生率</h6>
+                            <h3 class="card-text mb-0" style="color: var(--secondary-color); font-weight: 700;">@((result.RematchProbability * 100).ToString("F2"))<small style="font-size: 0.6em; font-weight: 400; margin-left: 0.25rem;">%</small></h3>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card bg-light">
+                    <div class="card bg-light h-100">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">平均再マッチ回数</h6>
-                            <h3 class="card-text">@result.AverageRematchCount.ToString("F2")</h3>
+                            <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.85rem;">平均再マッチ回数</h6>
+                            <h3 class="card-text mb-0" style="color: var(--success-color); font-weight: 700;">@result.AverageRematchCount.ToString("F2")<small style="font-size: 0.6em; font-weight: 400; margin-left: 0.25rem;">回</small></h3>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card bg-light">
+                    <div class="card bg-light h-100">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted">最大再マッチ回数</h6>
-                            <h3 class="card-text">@result.MaxRematchCount</h3>
+                            <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.85rem;">最大再マッチ回数</h6>
+                            <h3 class="card-text mb-0" style="color: var(--accent-color); font-weight: 700;">@result.MaxRematchCount<small style="font-size: 0.6em; font-weight: 400; margin-left: 0.25rem;">回</small></h3>
                         </div>
                     </div>
                 </div>
@@ -204,90 +196,4 @@
             }
         </div>
     </div>
-}
-
-@code {
-    private int participantCount = 8;
-    private int iterations = 1000;
-    private double bothLossPercent = 10.0;
-    private bool isRunning = false;
-    private int currentIteration = 0;
-    private double progressPercentage = 0;
-    private CancellationTokenSource? cancellationTokenSource;
-
-    private SimulationResult? result;
-
-    private bool IsProbabilityValid()
-    {
-        return bothLossPercent >= 0 && bothLossPercent <= 100;
-    }
-
-    private void SetDefaultProbability()
-    {
-        bothLossPercent = 33.0;
-    }
-
-    private void SetRealisticProbability()
-    {
-        bothLossPercent = 10.0;
-    }
-
-    private async Task RunSimulation()
-    {
-        isRunning = true;
-        result = null;
-        currentIteration = 0;
-        progressPercentage = 0;
-        cancellationTokenSource = new CancellationTokenSource();
-        StateHasChanged();
-
-        await Task.Delay(10); // UI更新のための短い遅延
-
-        var participantNames = Enumerable.Range(1, participantCount)
-            .Select(i => $"Player{i}")
-            .ToList();
-
-        var winLossPercent = (100.0 - bothLossPercent) / 2.0;
-        var config = new SimulationConfig
-        {
-            Iterations = iterations,
-            Player1WinProbability = winLossPercent / 100.0,
-            Player2WinProbability = winLossPercent / 100.0,
-            BothLossProbability = bothLossPercent / 100.0
-        };
-
-        try
-        {
-            var progress = new Progress<int>(iteration =>
-            {
-                currentIteration = iteration;
-                progressPercentage = (double)iteration / iterations * 100.0;
-                InvokeAsync(StateHasChanged);
-            });
-
-            // 非同期でシミュレーションを実行
-            result = await Task.Run(() =>
-                SimulationService.RunSimulation(participantNames, config, progress, cancellationTokenSource.Token),
-                cancellationTokenSource.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // キャンセルされた場合は何もしない
-            result = null;
-        }
-        finally
-        {
-            isRunning = false;
-            currentIteration = 0;
-            progressPercentage = 0;
-            cancellationTokenSource?.Dispose();
-            cancellationTokenSource = null;
-            StateHasChanged();
-        }
-    }
-
-    private void CancelSimulation()
-    {
-        cancellationTokenSource?.Cancel();
-    }
 }
